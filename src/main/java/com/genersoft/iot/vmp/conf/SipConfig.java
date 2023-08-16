@@ -28,6 +28,16 @@ public class SipConfig {
 
 	private boolean alarm;
 
+	private Hook hook;
+
+	public Hook getHook() {
+		return hook;
+	}
+
+	public void setHook(Hook hook) {
+		this.hook = hook;
+	}
+
 	public void setIp(String ip) {
 		this.ip = ip;
 	}
@@ -106,5 +116,17 @@ public class SipConfig {
 
 	public void setShowIp(String showIp) {
 		this.showIp = showIp;
+	}
+
+	public static class Hook {
+		private String onPlay;
+
+		public String getOnPlay() {
+			return onPlay;
+		}
+
+		public void setOnPlay(String onPlay) {
+			this.onPlay = onPlay;
+		}
 	}
 }

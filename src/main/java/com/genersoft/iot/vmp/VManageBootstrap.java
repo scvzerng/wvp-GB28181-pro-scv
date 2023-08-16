@@ -10,7 +10,9 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.servlet.ServletComponentScan;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.web.client.RestTemplate;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
@@ -59,5 +61,10 @@ public class VManageBootstrap extends SpringBootServletInitializer {
 		SessionCookieConfig sessionCookieConfig = servletContext.getSessionCookieConfig();
 		sessionCookieConfig.setHttpOnly(true);
 
+	}
+
+	@Bean
+	public RestTemplate restTemplate(){
+		return new RestTemplate();
 	}
 }

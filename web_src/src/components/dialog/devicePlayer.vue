@@ -242,6 +242,7 @@
 import rtcPlayer from '../dialog/rtcPlayer.vue'
 import LivePlayer from '@liveqing/liveplayer'
 import jessibucaPlayer from '../common/jessibuca.vue'
+import userService from "../service/UserService";
 export default {
     name: 'devicePlayer',
     props: {},
@@ -383,9 +384,9 @@ export default {
         getUrlByStreamInfo(){
             console.log(this.streamInfo)
             if (location.protocol === "https:") {
-              this.videoUrl = this.streamInfo[this.player[this.activePlayer][1]]
+              this.videoUrl = `${this.streamInfo[this.player[this.activePlayer][1]]}?wvp-token=${userService.getToken()}`
             }else {
-              this.videoUrl = this.streamInfo[this.player[this.activePlayer][0]]
+              this.videoUrl = `${this.streamInfo[this.player[this.activePlayer][0]]}?wvp-token=${userService.getToken()}`
             }
             return this.videoUrl;
 

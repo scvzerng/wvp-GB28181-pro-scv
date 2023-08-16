@@ -6,8 +6,11 @@ import com.genersoft.iot.vmp.common.InviteInfo;
 import com.genersoft.iot.vmp.common.InviteSessionType;
 import com.genersoft.iot.vmp.common.StreamInfo;
 import com.genersoft.iot.vmp.common.VideoManagerConstants;
+import com.genersoft.iot.vmp.conf.SipConfig;
 import com.genersoft.iot.vmp.conf.UserSetting;
 import com.genersoft.iot.vmp.conf.exception.SsrcTransactionNotFoundException;
+import com.genersoft.iot.vmp.conf.security.JwtUtils;
+import com.genersoft.iot.vmp.conf.security.dto.JwtUser;
 import com.genersoft.iot.vmp.gb28181.bean.*;
 import com.genersoft.iot.vmp.gb28181.event.EventPublisher;
 import com.genersoft.iot.vmp.gb28181.event.subscribe.catalog.CatalogEvent;
@@ -37,19 +40,21 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.util.ObjectUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.context.request.async.DeferredResult;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.sip.InvalidArgumentException;
 import javax.sip.SipException;
 import java.text.ParseException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * @description:针对 ZLMediaServer的hook事件监听
@@ -126,6 +131,12 @@ public class ZLMHttpHookListener {
     @Autowired
     private RedisTemplate<Object, Object> redisTemplate;
 
+    @Autowired
+    private RestTemplate restTemplate;
+
+    @Autowired
+    private SipConfig sipConfig;
+
     /**
      * 服务器定时上报时间，上报间隔可配置，默认10s上报一次
      */
@@ -170,6 +181,22 @@ public class ZLMHttpHookListener {
                 }
             }
         });
+
+        if(StringUtils.hasText(param.getParams())){
+            Map<String, String> paramMap = urlParamToMap(param.getParams());
+            //wvp平台播放鉴权
+            String token = paramMap.get("wvp-token");
+            if(StringUtils.hasText(token)){
+                JwtUser user = JwtUtils.verifyToken(token);
+                //已过期和异常的用户
+                if(user.getStatus() == JwtUser.TokenStatus.EXCEPTION || user.getStatus() == JwtUser.TokenStatus.EXPIRED){
+                    return new HookResult(401, "Unauthorized");
+                }else{
+                    return HookResult.SUCCESS();
+                }
+            }
+        }
+
         if (!"rtp".equals(param.getApp())) {
             Map<String, String> paramMap = urlParamToMap(param.getParams());
             StreamAuthorityInfo streamAuthorityInfo = redisCatchStorage.getStreamAuthorityInfo(param.getApp(), param.getStream());
@@ -177,8 +204,15 @@ public class ZLMHttpHookListener {
                 return new HookResult(401, "Unauthorized");
             }
         }
+        return verifyWithOnPlay(param);
+    }
 
-        return HookResult.SUCCESS();
+    private HookResult verifyWithOnPlay(OnPlayHookParam param){
+        return Optional.ofNullable(sipConfig.getHook()).map(SipConfig.Hook::getOnPlay).map(onPlay->{
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            return restTemplate.postForObject(onPlay,new HttpEntity<>(param, headers), HookResult.class);
+        }).orElse(HookResult.SUCCESS());
     }
 
     /**
