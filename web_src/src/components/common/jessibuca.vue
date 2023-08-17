@@ -24,6 +24,8 @@
 </template>
 
 <script>
+import userService from "../service/UserService";
+
 let jessibucaPlayer = {};
 export default {
   name: 'jessibuca',
@@ -242,11 +244,11 @@ export default {
         this.quieting = jessibuca.quieting;
       });
       if (jessibucaPlayer[this._uid].hasLoaded()) {
-        jessibucaPlayer[this._uid].play(url);
+        jessibucaPlayer[this._uid].play(`${url}?wvp-token=${userService.getToken()}`);
       } else {
         jessibucaPlayer[this._uid].on("load", () => {
           console.log("load 播放")
-          jessibucaPlayer[this._uid].play(url);
+          jessibucaPlayer[this._uid].play(`${url}?wvp-token=${userService.getToken()}`);
         });
       }
     },

@@ -7,6 +7,8 @@
 </template>
 
 <script>
+import userService from "../service/UserService";
+
 let webrtcPlayer = null;
 export default {
     name: 'rtcPlayer',
@@ -38,7 +40,7 @@ export default {
             webrtcPlayer = new ZLMRTCClient.Endpoint({
                 element: document.getElementById('webRtcPlayerBox'),// video 标签
                 debug: true,// 是否打印日志
-                zlmsdpUrl: url,//流地址
+                zlmsdpUrl: `${url}?wvp-token=${userService.getToken()}`,//流地址
                 simulecast: false,
                 useCamera: false,
                 audioEnable: false,

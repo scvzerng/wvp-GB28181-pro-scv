@@ -384,9 +384,9 @@ export default {
         getUrlByStreamInfo(){
             console.log(this.streamInfo)
             if (location.protocol === "https:") {
-              this.videoUrl = `${this.streamInfo[this.player[this.activePlayer][1]]}?wvp-token=${userService.getToken()}`
+              this.videoUrl = this.streamInfo[this.player[this.activePlayer][1]]
             }else {
-              this.videoUrl = `${this.streamInfo[this.player[this.activePlayer][0]]}?wvp-token=${userService.getToken()}`
+              this.videoUrl = this.streamInfo[this.player[this.activePlayer][0]]
             }
             return this.videoUrl;
 

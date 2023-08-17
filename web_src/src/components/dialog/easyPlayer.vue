@@ -3,6 +3,8 @@
 </template>
 
 <script>
+import userService from "../service/UserService";
+
 export default {
     name: 'player',
     data() {
@@ -37,7 +39,7 @@ export default {
               this.height = false
             }
             this.easyPlayer = new WasmPlayer(null, 'easyplayer', this.eventcallbacK, {Height: this.height})
-            this.easyPlayer.play(url, 1)
+            this.easyPlayer.play(`${url}?wvp-token=${userService.getToken()}`, 1)
         },
         pause: function () {
           this.easyPlayer.destroy();
