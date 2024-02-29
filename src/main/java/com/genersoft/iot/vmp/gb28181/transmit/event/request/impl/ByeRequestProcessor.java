@@ -116,6 +116,9 @@ public class ByeRequestProcessor extends SIPRequestProcessorParent implements In
 			redisCatchStorage.deleteSendRTPServer(sendRtpItem.getPlatformId(), sendRtpItem.getChannelId(),
 					callIdHeader.getCallId(), null);
 			zlmServerFactory.stopSendRtpStream(mediaInfo, param);
+			if (userSetting.getUseCustomSsrcForParentInvite()) {
+				mediaServerService.releaseSsrc(mediaInfo.getId(), sendRtpItem.getSsrc());
+			}
 			if (sendRtpItem.getPlayType().equals(InviteStreamType.PUSH)) {
 				ParentPlatform platform = platformService.queryPlatformByServerGBId(sendRtpItem.getPlatformId());
 				if (platform != null) {
@@ -149,7 +152,7 @@ public class ByeRequestProcessor extends SIPRequestProcessorParent implements In
 		}else {
 
 			// 可能是设备发送的停止
-			SsrcTransaction ssrcTransaction = streamSession.getSsrcTransaction(null, null, callIdHeader.getCallId(), null);
+			SsrcTransaction ssrcTransaction = streamSession.getSsrcTransactionByCallId(callIdHeader.getCallId());
 			if (ssrcTransaction == null) {
 				return;
 			}
@@ -178,7 +181,7 @@ public class ByeRequestProcessor extends SIPRequestProcessorParent implements In
 			if (mediaServerItem != null) {
 				mediaServerService.releaseSsrc(mediaServerItem.getId(), ssrcTransaction.getSsrc());
 			}
-			streamSession.remove(device.getDeviceId(), channel.getChannelId(), ssrcTransaction.getStream());
+			streamSession.removeByCallId(device.getDeviceId(), channel.getChannelId(), ssrcTransaction.getCallId());
 		}
 	}
 }

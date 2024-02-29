@@ -25,8 +25,6 @@ public class ZLMRESTfulUtils {
 
     private OkHttpClient client;
 
-
-
     public interface RequestCallback{
         void run(JSONObject response);
     }
@@ -215,6 +213,21 @@ public class ZLMRESTfulUtils {
         }
     }
 
+    public JSONObject isMediaOnline(MediaServerItem mediaServerItem, String app, String stream, String schema){
+        Map<String, Object> param = new HashMap<>();
+        if (app != null) {
+            param.put("app",app);
+        }
+        if (stream != null) {
+            param.put("stream",stream);
+        }
+        if (schema != null) {
+            param.put("schema",schema);
+        }
+        param.put("vhost","__defaultVhost__");
+        return sendPost(mediaServerItem, "isMediaOnline", param, null);
+    }
+
     public JSONObject getMediaList(MediaServerItem mediaServerItem, String app, String stream, String schema, RequestCallback callback){
         Map<String, Object> param = new HashMap<>();
         if (app != null) {
@@ -382,5 +395,15 @@ public class ZLMRESTfulUtils {
         param.put("ssrc", ssrc);
         param.put("stream_id", streamId);
         return sendPost(mediaServerItem, "updateRtpServerSSRC",param, null);
+    }
+
+    public JSONObject deleteRecordDirectory(MediaServerItem mediaServerItem, String app, String stream, String date, String fileName) {
+        Map<String, Object> param = new HashMap<>(1);
+        param.put("vhost", "__defaultVhost__");
+        param.put("app", app);
+        param.put("stream", stream);
+        param.put("period", date);
+        param.put("name", fileName);
+        return sendPost(mediaServerItem, "deleteRecordDirectory",param, null);
     }
 }

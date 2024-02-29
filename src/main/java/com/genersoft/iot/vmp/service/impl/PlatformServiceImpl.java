@@ -1,5 +1,6 @@
 package com.genersoft.iot.vmp.service.impl;
 
+import com.baomidou.dynamic.datasource.annotation.DS;
 import com.genersoft.iot.vmp.conf.DynamicTask;
 import com.genersoft.iot.vmp.conf.UserSetting;
 import com.genersoft.iot.vmp.gb28181.bean.*;
@@ -38,6 +39,7 @@ import java.util.*;
  * @author lin
  */
 @Service
+@DS("master")
 public class PlatformServiceImpl implements IPlatformService {
 
     private final static String REGISTER_KEY_PREFIX = "platform_register_";
@@ -149,7 +151,7 @@ public class PlatformServiceImpl implements IPlatformService {
         dynamicTask.stop(registerTaskKey);
         // 注销旧的
         try {
-            if (parentPlatformOld.isStatus()) {
+            if (parentPlatformOld.isStatus() && parentPlatformCatchOld != null) {
                 logger.info("保存平台{}时发现旧平台在线，发送注销命令", parentPlatformOld.getServerGBId());
                 commanderForPlatform.unregister(parentPlatformOld, parentPlatformCatchOld.getSipTransactionInfo(), null, eventResult -> {
                     logger.info("[国标级联] 注销成功， 平台：{}", parentPlatformOld.getServerGBId());
@@ -266,6 +268,7 @@ public class PlatformServiceImpl implements IPlatformService {
         }
         if (parentPlatform.isAutoPushChannel()) {
             if (subscribeHolder.getCatalogSubscribe(parentPlatform.getServerGBId()) == null) {
+                logger.info("[国标级联]：{}, 添加自动通道推送模拟订阅信息", parentPlatform.getServerGBId());
                 addSimulatedSubscribeInfo(parentPlatform);
             }
         }else {
@@ -343,9 +346,16 @@ public class PlatformServiceImpl implements IPlatformService {
             // 清除心跳任务
             dynamicTask.stop(keepaliveTaskKey);
         }
-        // 停止目录订阅回复
-        logger.info("[平台离线] {}, 停止订阅回复", parentPlatform.getServerGBId());
-        subscribeHolder.removeAllSubscribe(parentPlatform.getServerGBId());
+        // 停止订阅回复
+        SubscribeInfo catalogSubscribe = subscribeHolder.getCatalogSubscribe(parentPlatform.getServerGBId());
+        if (catalogSubscribe != null) {
+            if (catalogSubscribe.getExpires() > 0) {
+                logger.info("[平台离线] {}, 停止目录订阅回复", parentPlatform.getServerGBId());
+                subscribeHolder.removeCatalogSubscribe(parentPlatform.getServerGBId());
+            }
+        }
+        logger.info("[平台离线] {}, 停止移动位置订阅回复", parentPlatform.getServerGBId());
+        subscribeHolder.removeMobilePositionSubscribe(parentPlatform.getServerGBId());
         // 发起定时自动重新注册
         if (!stopRegister) {
             // 设置为60秒自动尝试重新注册

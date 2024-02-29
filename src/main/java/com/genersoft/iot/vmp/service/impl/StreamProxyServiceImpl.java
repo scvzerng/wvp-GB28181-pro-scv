@@ -2,6 +2,7 @@ package com.genersoft.iot.vmp.service.impl;
 
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
+import com.baomidou.dynamic.datasource.annotation.DS;
 import com.genersoft.iot.vmp.common.GeneralCallback;
 import com.genersoft.iot.vmp.common.StreamInfo;
 import com.genersoft.iot.vmp.conf.DynamicTask;
@@ -35,20 +36,25 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
+import org.springframework.util.CollectionUtils;
 import org.springframework.util.ObjectUtils;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 视频代理业务
  */
 @Service
+@DS("master")
 public class StreamProxyServiceImpl implements IStreamProxyService {
 
     private final static Logger logger = LoggerFactory.getLogger(StreamProxyServiceImpl.class);
@@ -128,7 +134,13 @@ public class StreamProxyServiceImpl implements IStreamProxyService {
             }
             JSONArray dataArray = jsonObject.getJSONArray("data");
             JSONObject mediaServerConfig = dataArray.getJSONObject(0);
+            if (ObjectUtils.isEmpty(param.getFfmpegCmdKey())) {
+                param.setFfmpegCmdKey("ffmpeg.cmd");
+            }
             String ffmpegCmd = mediaServerConfig.getString(param.getFfmpegCmdKey());
+            if (ffmpegCmd == null) {
+                throw new ControllerException(ErrorCode.ERROR100.getCode(), "ffmpeg拉流代理无法获取ffmpeg cmd");
+            }
             String schema = getSchemaFromFFmpegCmd(ffmpegCmd);
             if (schema == null) {
                 throw new ControllerException(ErrorCode.ERROR100.getCode(), "ffmpeg拉流代理无法从ffmpeg cmd中获取到输出格式");
@@ -403,6 +415,8 @@ public class StreamProxyServiceImpl implements IStreamProxyService {
                 logger.info("启用代理失败： {}/{}->{}({})", app, stream, jsonObject.getString("msg"),
                         streamProxy.getSrcUrl() == null? streamProxy.getUrl():streamProxy.getSrcUrl());
             }
+        } else if (streamProxy != null && streamProxy.isEnable()) {
+           return true ;
         }
         return result;
     }
@@ -454,7 +468,7 @@ public class StreamProxyServiceImpl implements IStreamProxyService {
         streamProxyMapper.deleteAutoRemoveItemByMediaServerId(mediaServerId);
 
         // 移除拉流代理生成的流信息
-//        syncPullStream(mediaServerId);
+        syncPullStream(mediaServerId);
 
         // 恢复流代理, 只查找这个这个流媒体
         List<StreamProxyItem> streamProxyListForEnable = storager.getStreamProxyListForEnableInMediaServer(
@@ -559,5 +573,44 @@ public class StreamProxyServiceImpl implements IStreamProxyService {
         int online = streamProxyMapper.getOnline();
 
         return new ResourceBaseInfo(total, online);
+    }
+
+
+    @Scheduled(cron = "* 0/10 * * * ?")
+    public void asyncCheckStreamProxyStatus() {
+
+        List<MediaServerItem> all = mediaServerService.getAllOnline();
+
+        if (CollectionUtils.isEmpty(all)){
+            return;
+        }
+
+        Map<String, MediaServerItem> serverItemMap = all.stream().collect(Collectors.toMap(MediaServerItem::getId, Function.identity(), (m1, m2) -> m1));
+
+        List<StreamProxyItem> list = videoManagerStorager.getStreamProxyListForEnable(true);
+
+        if (CollectionUtils.isEmpty(list)){
+            return;
+        }
+
+        for (StreamProxyItem streamProxyItem : list) {
+
+            MediaServerItem mediaServerItem = serverItemMap.get(streamProxyItem.getMediaServerId());
+
+            // TODO 支持其他 schema
+            JSONObject mediaInfo = zlmresTfulUtils.isMediaOnline(mediaServerItem, streamProxyItem.getApp(), streamProxyItem.getStream(), "rtsp");
+
+            if (mediaInfo == null){
+                streamProxyItem.setStatus(false);
+            } else {
+                if (mediaInfo.getInteger("code") == 0 && mediaInfo.getBoolean("online")) {
+                    streamProxyItem.setStatus(true);
+                } else {
+                    streamProxyItem.setStatus(false);
+                }
+            }
+
+            updateStreamProxy(streamProxyItem);
+        }
     }
 }
